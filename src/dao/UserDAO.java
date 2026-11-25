@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class UserDAO {
+
     public boolean registerUser(User user) {
         String query = "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)";
         try (Connection con = DBConnection.getConnection();
@@ -15,7 +16,8 @@ public class UserDAO {
             ps.setString(1, user.getName());
             ps.setString(2, user.getEmail());
             ps.setString(3, user.getPassword());
-            ps.setString(4, user.getRole() == null ? "user" : user.getRole());
+            // Default to "USER" if no role is provided
+            ps.setString(4, user.getRole() == null ? "USER" : user.getRole());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("Registration failed: " + e.getMessage());
@@ -43,5 +45,19 @@ public class UserDAO {
             System.out.println("Login failed: " + e.getMessage());
         }
         return null;
+    }
+
+    // --- NEW METHOD ADDED HERE ---
+    // This permanently changes the role in the database
+    public void updateUserRole(String email, String newRole) {
+        String query = "UPDATE users SET role = ? WHERE email = ?";
+        try (Connection con = DBConnection.getConnection();
+                PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, newRole);
+            ps.setString(2, email);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Failed to update role: " + e.getMessage());
+        }
     }
 }

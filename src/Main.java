@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Main {
+    // This tracks who is currently logged in (Session Tracker)
+    static User currentUser = null;
+
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         UserDAO userDAO = new UserDAO();
@@ -23,24 +26,53 @@ public class Main {
             int choice = getIntInput(sc, "Choose an option: ");
 
             if (choice == 1 || choice == 2) {
-                // Login Flow
+                // 1. Prevent simultaneous logins
+                if (currentUser != null) {
+                    System.out.println(
+                            "Error: You are already logged in as " + currentUser.getName() + ". Please logout first.");
+                    continue;
+                }
+
+                // 2. Ask for credentials
                 System.out.print("Enter Email: ");
                 String email = sc.nextLine();
                 System.out.print("Enter Password: ");
                 String password = sc.nextLine();
 
+                // 3. Check database
                 User user = userDAO.loginUser(email, password);
 
                 if (user != null) {
-                    System.out.println("Login Successful! Welcome, " + user.getName());
+                    String dbRole = user.getRole();
 
-                    // BYPASS ROLE CHECK FOR EASY TESTING
+                    // --- LOGIC FOR ADMIN LOGIN (Choice 1) ---
                     if (choice == 1) {
-                        adminMenu(sc, busDAO, bookingDAO);
-                    } else {
-                        userMenu(sc, busDAO, bookingDAO, user);
-                    }
+                        if (dbRole.equalsIgnoreCase("user")) {
+                            // Permanently upgrade them to ADMIN in the database
+                            userDAO.updateUserRole(email, "ADMIN");
+                            user.setRole("ADMIN");
+                            System.out.println("Notice: Your account has been permanently upgraded to ADMIN.");
+                        }
 
+                        currentUser = user;
+                        System.out.println("Login Successful! Welcome Admin, " + currentUser.getName());
+                        adminMenu(sc, busDAO, bookingDAO);
+                        currentUser = null; // Clear session after logout
+                    }
+                    // --- LOGIC FOR USER LOGIN (Choice 2) ---
+                    else if (choice == 2) {
+                        if (dbRole.equalsIgnoreCase("ADMIN")) {
+                            // Block them from entering the User menu
+                            System.out
+                                    .println("Error: This email is permanently an ADMIN. You cannot log in as a User.");
+                            continue; // Skips the rest of the loop and goes back to main menu
+                        }
+
+                        currentUser = user;
+                        System.out.println("Login Successful! Welcome User, " + currentUser.getName());
+                        userMenu(sc, busDAO, bookingDAO, user);
+                        currentUser = null; // Clear session after logout
+                    }
                 } else {
                     System.out.println("Invalid email or password.");
                 }
